@@ -1,0 +1,7 @@
+RECORD t/record
+STOP t/stop
+PLAY t/play
+PAUSE t/pause
+
+REWIND b/rewind
+FORWARD b/forward

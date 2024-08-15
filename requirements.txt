@@ -1,0 +1,7 @@
+pyttsx3
+peech_recognition
+transformers
+langchain
+PyAudio
+soundfile
+pydantic
