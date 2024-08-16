@@ -1,7 +1,13 @@
 pyttsx3
-peech_recognition
+SpeechRecognition
 transformers
 langchain
 PyAudio
 soundfile
 pydantic
+pvporcupine
+langchain_huggingface
+python-dotenv
+setuptools
+torch
+whisper

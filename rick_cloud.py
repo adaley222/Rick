@@ -1,13 +1,10 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, MistralForCausalLM, LlamaTokenizer, pipeline
-from langchain import HuggingFaceHub, LLMchain
-from langchain.prompts import PromptTemplate
+from  huggingface_hub import InferenceClient
 import speech_recognition as sr
 import pvporcupine
 import pyaudio
 import struct
-import os
+import json
 import pyttsx3
-import torch
 from dotenv import load_dotenv
 
 
@@ -38,13 +35,11 @@ def speak_text(text):
 
 def generate_response(prompt):
 
-    hub_llm = HuggingFaceHub(repo_id = "https://huggingface.co/microsoft/Phi-3-mini-128k-instruct")
+    repo_id = "microsoft/Phi-3-mini-4k-instruct"
 
-    prompt = PromptTemplate(
-        input_variables=[]
-        )
+    inference_client = InferenceClient(model = repo_id)
 
-    context = f"""
+    prompt = f"""
             Your name is Rick and you are a helpful assistant for musicians to interact with their DAW recording software. 
             You will be given a list of OSC commands that correspond to actions in the DAW that the user would like you to take. 
             The user will then ask you to take actions in the DAW, and you will return the corresponding OSC code so the application can communicate that to the DAW.
@@ -55,18 +50,20 @@ def generate_response(prompt):
 
             For example, if the users tells you "start recording" you would return t/record, because it corresponds to the RECORD action.
 
-            You will reply with only the corresponding code, no more, and then stop. 
+            If you are unsure what the user is requesting, say "Sorry, try again." Otherwise, you will reply with only the corresponding code, no more, and then stop. 
 
-            the users request is:{prompt}
+            the user's request is:{prompt}
 """
-    # print("context: ", context)
+    
+    response = inference_client.post(
+        json={
+            "inputs": prompt,
+            "parameters": {"max_new_tokens": 200},
+            "task": "text-generation",
+        },
+    )
 
-    model_inputs = tokenizer([context], return_tensors= "pt")
-
-    outputs = model.generate(**model_inputs, max_new_tokens = 100)
-
-     
-    return tokenizer.batch_decode(outputs)[0]
+    return json.loads(response.decode())[0]["generated_text"]
 
 
 
@@ -127,7 +124,6 @@ if __name__ == "__main__":
 
             with sr.Microphone() as source: 
                 recognizer = sr.Recognizer()
-                recognizer.adjust_for_ambient_noise(source)
             
                 audio1 = recognizer.listen(source)
                 
