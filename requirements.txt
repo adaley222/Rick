@@ -11,3 +11,4 @@ python-dotenv
 setuptools
 torch
 whisper
+pathlib

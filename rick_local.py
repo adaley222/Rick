@@ -6,7 +6,8 @@ import struct
 import os
 import pyttsx3
 import torch
-
+from dotenv import load_dotenv
+from pathlib import Path
 
 
 
@@ -78,9 +79,17 @@ if __name__ == "__main__":
 
     # Init hotword detector
 
+    rick_audio_file = "hey-rick_en_windows_v3_0_0.ppn"
+
+    working_directory = Path.cwd()
+
+    rick_path = working_directory / rick_audio_file
+
+    load_dotenv()
+
     porcupine = pvporcupine.create(
-    access_key = "8MiW2e57ER0QQKvCHWpkRhIE9Zhh/0mrurN80SI9LEMfC/7zeUfCrA==",
-    keyword_paths = [r"C:\Users\Andrew\OneDrive\Documents\Spinning_Leaf\Rick\hey-rick_en_windows_v3_0_0.ppn"]
+        access_key = os.getenv("PORCUPINE_TOKEN"),
+        keyword_paths = [str(rick_path)]
     )
 
 
