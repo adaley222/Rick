@@ -12,3 +12,4 @@ setuptools
 torch
 whisper
 pathlib
+python-osc

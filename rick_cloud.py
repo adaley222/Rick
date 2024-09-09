@@ -1,14 +1,17 @@
-from  huggingface_hub import InferenceClient
 import speech_recognition as sr
 import pvporcupine
 import pyaudio
-import struct
-import json
 import pyttsx3
 import os
 import sys
+import socket
+import struct
+import json
 from dotenv import load_dotenv
 from pathlib import Path
+from pythonosc import udp_client
+from huggingface_hub import InferenceClient
+
 
 
 """
@@ -25,6 +28,25 @@ Get OSC state from reaper
 Return to passive listening
 """
 
+def get_local_ip():
+    """
+    Gets local_ip for communication to DAW
+    """
+
+    # Creates socket using IPv4 and UDP
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    s.settimeout(0)
+    
+    try:
+        s.connect(("8.8.8.8", 80))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = "127.0.0.1"
+    finally:
+        s.close()
+    
+    return IP
 
 def speak_text(text):
     """
@@ -32,11 +54,17 @@ def speak_text(text):
     """
 
     speech_to_text_engine.say(text)
+
+    #TODO Do we really need this extra
     speech_to_text_engine.runAndWait()
 
 
 
 def generate_response(prompt):
+
+    """
+    Calls the LLM API for a response. 
+    """
 
     repo_id = "microsoft/Phi-3-mini-4k-instruct"
 
@@ -90,27 +118,27 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    # Init text-to-speech engine
+    working_directory = Path.cwd()
 
-    speech_to_text_engine = pyttsx3.init()
+    # Load OSC pattern
+
+    OSC_txt_file = "OSC_commands.txt"
+    OSC_path = working_directory / OSC_txt_file
+
+    with open(OSC_path, "r") as file:
+        OSC_pattern = file.read()
 
     # Init hotword detector
 
     rick_audio_file = "hey-rick_en_windows_v3_0_0.ppn"
 
-    working_directory = Path.cwd()
-
     rick_path = working_directory / rick_audio_file
-
-
 
     porcupine = pvporcupine.create(
         access_key = os.getenv("PORCUPINE_TOKEN"),
         keyword_paths = [str(rick_path)])
-    
 
-
-    # Init audio stream
+     # Init audio stream
 
     paud = pyaudio.PyAudio()
 
@@ -121,15 +149,10 @@ if __name__ == "__main__":
         input = True,
         frames_per_buffer= porcupine.frame_length
     )
+    
+    # Init text-to-speech engine
 
-    # Load OSC pattern
-
-    OSC_txt_file = "OSC_commands.txt"
-    OSC_path = working_directory / OSC_txt_file
-
-    with open(OSC_path, "r") as file:
-        OSC_pattern = file.read()
-
+    speech_to_text_engine = pyttsx3.init()
     
     print("ready")
 
@@ -145,6 +168,7 @@ if __name__ == "__main__":
         
         # Checking if a hotword is detected
         if keyword_index >= 0:
+
             speak_text("Yo")
 
             # Begin Recording
@@ -175,6 +199,30 @@ if __name__ == "__main__":
                     sys.exit()
 
                 print(OSC_code)
+
+                # Send to DAW via OSC/UDP
+
+                local_ip = get_local_ip()
+
+                #TODO move reaper_port to a config file
+                reaper_port = 55444
+
+                client = udp_client.SimpleUDPClient("192.168.4.207", reaper_port)
+
+                # The OSC code is actually an address. The message is 1. 
+                client.send_message("action/1007", 1)
+
+
+
+
+
+
+
+                
+
+
+
+
 
 
 
