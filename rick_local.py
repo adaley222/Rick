@@ -1,14 +1,16 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, MistralForCausalLM, LlamaTokenizer, pipeline
 import speech_recognition as sr
 import pvporcupine
 import pyaudio
-import struct
-import os
 import pyttsx3
-import torch
+import os
+import sys
+import socket
+import struct
+import json
 from dotenv import load_dotenv
 from pathlib import Path
-
+from pythonosc import udp_client
+from transformers import AutoModelForCausalLM, AutoTokenizer, MistralForCausalLM, pipeline
 
 
 
@@ -26,38 +28,76 @@ Get OSC state from reaper
 Return to passive listening
 """
 
+def get_local_ip():
+    """
+    Gets local_ip for communication to DAW
+    """
+
+    # Creates socket using IPv4 and UDP
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    s.settimeout(0)
+    
+    try:
+        s.connect(("8.8.8.8", 80))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = "127.0.0.1"
+    finally:
+        s.close()
+    
+    return IP
 
 def speak_text(text):
+    """
+    This function speaks the input text out loud using the pyttsx3 library.
+    """
+
     speech_to_text_engine.say(text)
+
+    #TODO Do we really need this extra
     speech_to_text_engine.runAndWait()
 
 
 
 def generate_response(prompt):
 
-    context = f"""
-            Your name is Rick and you are a helpful assistant for musicians to interact with their DAW recording software. 
+    prompt = f"""
+            <|system|>
+
+            Your name is Rick and you are a helpful assistant for musicians to interact with their Digital Audio Workstation software. 
+            
+            For example, it could be DAW software like Reaper, ProTools, or Logic. 
+            
             You will be given a list of OSC commands that correspond to actions in the DAW that the user would like you to take. 
-            The user will then ask you to take actions in the DAW, and you will return the corresponding OSC code so the application can communicate that to the DAW.
+            
+            This list is written in pairs, with a single all caps word first being the desired actions name, and then it's code. A string with a single letter, followed by a slash, followed by that all caps word in lower case. 
+            
+            For example, if the user wanted to pause, they might say "pause playback". In that case, the correspoinding code would be the "t/pause" in "PAUSE t/pause".
+            
+            The application will take that code and use it to communicate with the DAW to take the user's requested action. 
 
-            The command document is a list of actions in all caps, followed by their corresponding codes. Here is the list:
+            Here is the list: "{OSC_pattern}"
 
-            {OSC_pattern}
+            The user will only give you a single request, do not return more than one response. You will return the code, and only the single code, and then stop. 
+            
+            If you are unsure what the user is requesting, say "Sorry, try again." 
+            
+            Also, the user may ask you to turn off. If they say something like "stop" or "turn off" or "goodbye", then return just the string "EXIT"<|end|>
 
-            For example, if the users tells you "start recording" you would return t/record, because it corresponds to the RECORD action.
+            <|user|>
+            
+            "{prompt}" <|end|>
 
-            You will reply with only the corresponding code, no more, and then stop. 
-
-            the users request is:{prompt}
-"""
-    # print("context: ", context)
+            <|assistant|>
+            """
 
     model_inputs = tokenizer([context], return_tensors= "pt")
 
     outputs = model.generate(**model_inputs, max_new_tokens = 100)
 
-     
     return tokenizer.batch_decode(outputs)[0]
+
 
 
 
@@ -65,50 +105,49 @@ if __name__ == "__main__":
 
     print("Initializing")
 
-    # Init text-to-speech engine
+    load_dotenv()
 
-    speech_to_text_engine = pyttsx3.init()
+    working_directory = Path.cwd()
 
     # Load model into cuda
-
     torch.set_default_device("cuda")
 
     model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2", torch_dtype="auto", load_in_8bit = True, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.2", trust_remote_code=True)
 
+    # Load OSC pattern
+
+    OSC_txt_file = "OSC_commands.txt"
+    OSC_path = working_directory / OSC_txt_file
+
+    with open(OSC_path, "r") as file:
+        OSC_pattern = file.read()
 
     # Init hotword detector
 
     rick_audio_file = "hey-rick_en_windows_v3_0_0.ppn"
 
-    working_directory = Path.cwd()
-
     rick_path = working_directory / rick_audio_file
-
-    load_dotenv()
 
     porcupine = pvporcupine.create(
         access_key = os.getenv("PORCUPINE_TOKEN"),
-        keyword_paths = [str(rick_path)]
-    )
+        keyword_paths = [str(rick_path)])
 
+     # Init audio stream
 
-    # Init audio stream
     paud = pyaudio.PyAudio()
 
     audio_stream = paud.open(
-    rate = porcupine.sample_rate,
-    channels= 1,
-    format= pyaudio.paInt16,
-    input = True,
-    frames_per_buffer= porcupine.frame_length
+        rate = porcupine.sample_rate,
+        channels= 1,
+        format= pyaudio.paInt16,
+        input = True,
+        frames_per_buffer= porcupine.frame_length
     )
+    
+    # Init text-to-speech engine
 
-    # Load OSC pattern
-    OSC_path = r"C:\Users\Andrew\OneDrive\Documents\Spinning_Leaf\Rick\OSC_commands.txt"
-    with open(OSC_path, "r") as file:
-        OSC_pattern = file.read()
-
+    speech_to_text_engine = pyttsx3.init()
     
     print("ready")
 
@@ -121,10 +160,10 @@ if __name__ == "__main__":
         
         # Processing audio data using Porcupine
         keyword_index = porcupine.process(keyword)
+        
         # Checking if a hotword is detected
-        
-        
         if keyword_index >= 0:
+
             speak_text("Yo")
 
             # Begin Recording
@@ -133,7 +172,6 @@ if __name__ == "__main__":
 
             with sr.Microphone() as source: 
                 recognizer = sr.Recognizer()
-                #recognizer.adjust_for_ambient_noise(source)
             
                 audio1 = recognizer.listen(source)
                 
@@ -146,5 +184,40 @@ if __name__ == "__main__":
 
                 print("transcription: " + transcription)
 
-                print("response: " + generate_response(transcription))
+                response = generate_response(transcription)
+
+                print(response)
+
+                OSC_code = response.strip().split()[-1]
+
+                if OSC_code == "EXIT":
+                    sys.exit()
+
+                print(OSC_code)
+
+                # Send to DAW via OSC/UDP
+
+                local_ip = get_local_ip()
+
+                #TODO move reaper_port to a config file
+                reaper_port = 55444
+
+                client = udp_client.SimpleUDPClient("192.168.4.207", reaper_port)
+
+                # The OSC code is actually an address. The message is 1. 
+                client.send_message("action/1007", 1)
+
+
+
+
+
+
+
+                
+
+
+
+
+
+
 
