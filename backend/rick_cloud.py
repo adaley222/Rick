@@ -12,22 +12,6 @@ from pathlib import Path
 from pythonosc import udp_client
 from huggingface_hub import InferenceClient
 
-
-
-"""
-0) Download model
-1) Open Mic for passive listening
-Get OSC state from reaper
-2) Recognize wake word
-3) record further
-4) process audio to text
-5) send text to llm
-5) Receive OSC Code from LLM
-- Send OSC code to Reaper via TCP
-6) Speak back response
-Return to passive listening
-"""
-
 def get_local_ip():
     """
     Gets local_ip for communication to DAW
