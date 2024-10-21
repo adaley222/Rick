@@ -7,12 +7,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# frontend
 node_modules
 .DS_Store
 dist
 dist-ssr
 coverage
 *.local
+.vite
+
+
+# Tauri build artifacts
+*.app
+*.msi
+*.exe
+*.deb
+*.dmg
+
+Tauri/src-tauri/.env
+Tauri/src-tauri/.env.*
+
 
 /cypress/videos/
 /cypress/screenshots/
@@ -33,3 +47,12 @@ coverage
 .venv
 .env
 input.wav
+
+# Tauri
+Tauri/target/
+Tauri/.cargo/
+Tauri/src-tauri/target/
+Tauri/src-tauri/Cargo.lock
+Tauri/gen/schemas
+
+Thumbs.db
