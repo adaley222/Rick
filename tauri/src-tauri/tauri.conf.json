@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "identifier": "io.github.adaley222.rick",
   "build": {
-  "beforeDevCommand": "npm --prefix ../frontend run dev",
-  "devUrl": "http://localhost:5173",
-  "beforeBuildCommand": "npm --prefix ../frontend run build",
-  "frontendDist": "../frontend/dist"
-},
+    "beforeDevCommand": "npm --prefix ../frontend run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm --prefix ../frontend run build",
+    "frontendDist": "../frontend/dist"
+  },
   "app": {
     "windows": [
       {

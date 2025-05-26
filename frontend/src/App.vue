@@ -3,9 +3,7 @@ import RickUI from './components/RickUI.vue'
 </script>
 
 <template>
-  <div id="app">
-    <RickUI />
-  </div>
+  <RickUI />
 </template>
 
 <style>

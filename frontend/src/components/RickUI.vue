@@ -1,37 +1,48 @@
 <template>
-  <div class="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
-    <div class="w-full max-w-2xl space-y-4">
-      <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold">Rick 🎙️</h1>
-        <button @click="openSettings" class="p-2 hover:bg-gray-200 rounded">
-          <Settings class="w-5 h-5" />
-        </button>
-      </div>
-
-      <div class="h-96 overflow-y-auto p-4 space-y-4 bg-white rounded shadow">
-        <div v-if="chatHistory.length === 0" class="text-gray-400">No chat history yet.</div>
-        <div v-else v-for="(entry, idx) in chatHistory" :key="idx" class="mb-2">
-          <p><strong>User:</strong> {{ entry.user }}</p>
-          <p><strong>Rick:</strong> {{ entry.rick }}</p>
+  <div class="rick-ui">    <div class="rick-card">
+      <div class="rick-layout">
+        <!-- Left column: Text and buttons -->
+        <div class="rick-left-column">
+          <div class="rick-content">
+            <h1 class="rick-title">Rick 🎙️</h1>
+            <div class="rick-settings-row">
+              <button @click="openSettings" class="rick-settings-btn">
+                <Settings class="w-5 h-5 text-rickred" />
+              </button>
+            </div>
+            <div class="rick-chat-area">
+              <div v-if="chatHistory.length === 0" class="rick-chat-empty">No chat history yet.</div>
+              <div v-else v-for="(entry, idx) in chatHistory" :key="idx" class="rick-chat-entry">
+                <p><strong class="rick-chat-label">User:</strong> {{ entry.user }}</p>
+                <p><strong class="rick-chat-label">Rick:</strong> {{ entry.rick }}</p>
+              </div>
+            </div>
+            <div class="rick-buttons-row">
+              <button @click="handleUndo" class="rick-btn rick-btn-undo">
+                <Undo class="rick-btn-icon text-rickred" /> Undo
+              </button>
+              <button
+                @click="toggleMic"
+                :class="['rick-btn rick-btn-mic', isListening ? 'listening' : '']"
+              >
+                <Mic class="rick-btn-icon" />
+                {{ isListening ? 'Listening...' : 'Start Listening' }}
+              </button>
+              <button @click="handleClear" class="rick-btn rick-btn-clear">
+                <Trash2 class="rick-btn-icon" /> Clear Chat
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div class="flex justify-between items-center">
-        <button @click="handleUndo" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">
-          <Undo class="inline w-4 h-4 mr-1" /> Undo
-        </button>
-
-        <button
-          @click="toggleMic"
-          :class="['px-4 py-2 rounded text-white flex items-center', isListening ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600']"
-        >
-          <Mic class="inline w-4 h-4 mr-1" />
-          {{ isListening ? 'Listening...' : 'Start Listening' }}
-        </button>
-
-        <button @click="handleClear" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
-          <Trash2 class="inline w-4 h-4 mr-1" /> Clear Chat
-        </button>
+        
+        <!-- Right column: Rick image -->
+        <div class="rick-right-column">
+          <img
+            src="/Rick_pic.jpeg"
+            alt="Rick"
+            class="rick-image"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -66,4 +77,7 @@ function openSettings() {
 </script>
 
 <style scoped>
+.text-rickred {
+  color: #C1272D;
+}
 </style>
