@@ -1,15 +1,14 @@
 pyttsx3
 SpeechRecognition
-transformers
-langchain
 PyAudio
-soundfile
-pydantic
 pvporcupine
-langchain_huggingface
 python-dotenv
-setuptools
-torch
-whisper
-pathlib
+huggingface-hub
 python-osc
+fastapi>=0.68.0
+uvicorn>=0.15.0
+whisper-openai
+transformers
+torch
+# Optional: if you want to use CUDA with torch
+# torch --index-url https://download.pytorch.org/whl/cu118

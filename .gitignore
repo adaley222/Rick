@@ -44,9 +44,9 @@ Tauri/src-tauri/.env.*
 *.tsbuildinfo
 
 # backend
-.venv
-.env
-input.wav
+/backend/.venv
+/backend/.env
+/backend/input.wav
 
 # Tauri
 Tauri/target/

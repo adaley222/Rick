@@ -7,10 +7,32 @@ import sys
 import socket
 import struct
 import json
+import asyncio
+import threading
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import logging
 from dotenv import load_dotenv
 from pathlib import Path
 from pythonosc import udp_client
 from huggingface_hub import InferenceClient
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize FastAPI app
+app = FastAPI()
+
+# Configure CORS for local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "tauri://localhost"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def get_local_ip():
     """
@@ -94,10 +116,78 @@ def generate_response(prompt):
 
     return json.loads(response.decode())[0]["generated_text"]
 
+@app.get("/")
+async def read_root():
+    logger.info("Root endpoint called")
+    return {"message": "Rick is running!"}
 
+@app.get("/api/status")
+async def get_status():
+    logger.info("Status endpoint called")
+    return {"status": "active"}
+
+def run_voice_recognition():
+    """
+    Function to run the voice recognition loop
+    """
+    global porcupine, audio_stream, speech_to_text_engine
+
+    print("Voice recognition started")
+
+    while True:
+        try:
+            # Reading audio data from the stream
+            keyword = audio_stream.read(porcupine.frame_length)
+            keyword = struct.unpack_from("h" * porcupine.frame_length, keyword)
+            
+            # Processing audio data using Porcupine
+            keyword_index = porcupine.process(keyword)
+            
+            # Checking if a hotword is detected
+            if keyword_index >= 0:
+                speak_text("Yo")
+
+                # Begin Recording
+                filename = "input.wav"
+
+                with sr.Microphone() as source: 
+                    recognizer = sr.Recognizer()
+                
+                    audio1 = recognizer.listen(source)
+                    
+                    try:
+                        transcription = recognizer.recognize_whisper(audio1)
+                    except sr.UnknownValueError:
+                        logger.error("Whisper could not understand the audio")
+                        continue
+                    except Exception as ex:
+                        logger.error(f"Error during recognition: {ex}")
+                        continue
+
+                    logger.info(f"transcription: {transcription}")
+
+                    response = generate_response(transcription)
+
+                    logger.info(f"Response: {response}")
+
+                    OSC_code = response.strip().split()[-1]
+
+                    if OSC_code == "EXIT":
+                        sys.exit()
+
+                    logger.info(f"OSC code: {OSC_code}")
+
+                    # Send to DAW via OSC/UDP
+                    local_ip = get_local_ip()
+                    reaper_port = 55444
+                    client = udp_client.SimpleUDPClient("192.168.4.207", reaper_port)
+                    client.send_message("action/1007", 1)
+
+        except Exception as e:
+            logger.error(f"Error in voice recognition loop: {e}")
+            continue
 
 if __name__ == "__main__":
-
     print("Initializing")
 
     load_dotenv()
@@ -105,7 +195,6 @@ if __name__ == "__main__":
     working_directory = Path.cwd()
 
     # Load OSC pattern
-
     OSC_txt_file = "OSC_commands.txt"
     OSC_path = working_directory / OSC_txt_file
 
@@ -113,17 +202,14 @@ if __name__ == "__main__":
         OSC_pattern = file.read()
 
     # Init hotword detector
-
     rick_audio_file = "hey-rick_en_windows_v3_0_0.ppn"
-
     rick_path = working_directory / rick_audio_file
 
     porcupine = pvporcupine.create(
         access_key = os.getenv("PORCUPINE_TOKEN"),
         keyword_paths = [str(rick_path)])
 
-     # Init audio stream
-
+    # Init audio stream
     paud = pyaudio.PyAudio()
 
     audio_stream = paud.open(
@@ -135,66 +221,24 @@ if __name__ == "__main__":
     )
     
     # Init text-to-speech engine
-
     speech_to_text_engine = pyttsx3.init()
     
     print("ready")
 
-    while True:
+    # Start voice recognition in a separate thread
+    voice_thread = threading.Thread(target=run_voice_recognition, daemon=True)
+    voice_thread.start()
 
-        # Reading audio data from the stream
-        keyword = audio_stream.read(porcupine.frame_length)
-        keyword = struct.unpack_from("h" * porcupine.frame_length, keyword)
+    try:
+        # Get port from command line arguments or use default
+        port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+        logger.info(f"Starting server on port {port}")
         
-        
-        # Processing audio data using Porcupine
-        keyword_index = porcupine.process(keyword)
-        
-        # Checking if a hotword is detected
-        if keyword_index >= 0:
-
-            speak_text("Yo")
-
-            # Begin Recording
-            
-            filename = "input.wav"
-
-            with sr.Microphone() as source: 
-                recognizer = sr.Recognizer()
-            
-                audio1 = recognizer.listen(source)
-                
-                try:
-                    transcription = recognizer.recognize_whisper(audio1)
-                except sr.UnknownValueError:
-                    print("Whisper could not understand the audio")
-                except Exception as ex:
-                    print("Error during recognition:", ex)
-
-                print("transcription: " + transcription)
-
-                response = generate_response(transcription)
-
-                print(response)
-
-                OSC_code = response.strip().split()[-1]
-
-                if OSC_code == "EXIT":
-                    sys.exit()
-
-                print(OSC_code)
-
-                # Send to DAW via OSC/UDP
-
-                local_ip = get_local_ip()
-
-                #TODO move reaper_port to a config file
-                reaper_port = 55444
-
-                client = udp_client.SimpleUDPClient("192.168.4.207", reaper_port)
-
-                # The OSC code is actually an address. The message is 1. 
-                client.send_message("action/1007", 1)
+        # Run the FastAPI server
+        uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    except Exception as e:
+        logger.error(f"Failed to start server: {e}")
+        sys.exit(1)
 
 
 

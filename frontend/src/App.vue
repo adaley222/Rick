@@ -1,9 +1,13 @@
 <script setup>
 import RickUI from './components/RickUI.vue'
+import PythonStatus from './components/PythonStatus.vue'
 </script>
 
 <template>
-  <RickUI />
+  <div>
+    <RickUI />
+    <PythonStatus />
+  </div>
 </template>
 
 <style>
